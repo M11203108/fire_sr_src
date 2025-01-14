@@ -1,0 +1,43 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/robot/ros2_ws/install/zlac8015d/lib/python3.10/site-packages",
+        "/home/robot/ros2_ws/install/slam_toolbox/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/wheeltec_rrt_msg/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/simple_follower_ros2/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/turn_on_wheeltec_robot/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/wheeltec_robot_msg/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/wheeltec_robot_keyboard/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/tf2_tools/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/dwb_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/nav_2d_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/nav2_simple_commander/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/nav2_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/nav2_common/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/lslidar_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/ackermann_msgs/local/lib/python3.10/dist-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/robot/ros2_ws/install/zlac8015d/lib/python3.10/site-packages",
+        "/home/robot/ros2_ws/install/slam_toolbox/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/wheeltec_rrt_msg/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/simple_follower_ros2/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/turn_on_wheeltec_robot/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/wheeltec_robot_msg/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/wheeltec_robot_keyboard/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/tf2_tools/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/dwb_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/nav_2d_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/nav2_simple_commander/lib/python3.10/site-packages",
+        "/home/robot/wheeltec_ros2/install/nav2_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/nav2_common/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/lslidar_msgs/local/lib/python3.10/dist-packages",
+        "/home/robot/wheeltec_ros2/install/ackermann_msgs/local/lib/python3.10/dist-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "files.associations": {
+        "limits": "cpp"
+    }
+}
