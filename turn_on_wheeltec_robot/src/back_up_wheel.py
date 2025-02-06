@@ -25,8 +25,8 @@ class ReadOdomVelToDis(Node):
         self.declare_parameter('usart_port_name_0', '/dev/motorttyUSB0')
         self.declare_parameter('usart_port_name_1', '/dev/motorttyUSB1')
         self.declare_parameter('serial_baud_rate', 115200)
-        self.declare_parameter('robot_frame_id', 'base_link')
-        self.declare_parameter('odom_frame_id', 'odom')
+        self.declare_parameter('robot_frame_id', 'base_footprint')
+        self.declare_parameter('odom_frame_id', 'odom_combined')
         self.declare_parameter('cmd_vel', 'cmd_vel')
 
         self.usart_port_name_0 = self.get_parameter('usart_port_name_0').value
@@ -55,7 +55,7 @@ class ReadOdomVelToDis(Node):
         self.prev_time = time.time()
 
         # 初始化計時器
-        self.timer_period = 1.0 / 10.0
+        self.timer_period = 0.033
         self.timer = self.create_timer(self.timer_period, self.Vel_to_Dis)
 
         # 設置加速度和減速度時間
@@ -129,7 +129,7 @@ class ReadOdomVelToDis(Node):
 
 
         odom_msg.twist.twist.linear.x = self.Vx
-        odom_msg.twist.twist.linear.y = 0.0 #self.Vy
+        odom_msg.twist.twist.linear.y = self.Vy
         odom_msg.twist.twist.angular.z = self.Vz
 
         self.publisher_.publish(odom_msg)

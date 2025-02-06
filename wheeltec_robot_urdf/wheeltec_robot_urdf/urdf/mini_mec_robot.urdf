@@ -33,7 +33,7 @@
     </link>
 
     <joint name="right_wheel_joint" type="continuous">
-        <origin xyz="--0.325 -0.3285 0.09" rpy="1.57 0 0"/> <!-- ivan change -->
+        <origin xyz="-0.325 -0.3285 0.09" rpy="1.57 0 0"/> <!-- ivan change -->
         <parent link="base_link"/>
         <child link="right_wheel_link"/>
         <axis xyz="0 1 0"/>

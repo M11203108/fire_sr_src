@@ -42,6 +42,12 @@ def generate_launch_description():
             package='turn_on_wheeltec_robot', 
             executable='odom_vel_to_dis.py', 
             output='screen',
+            parameters=[{'usart_port_name_0': '/dev/motorttyUSB0',
+                'usart_port_name_1': '/dev/motorttyUSB1',
+                'serial_baud_rate': 115200,
+                'robot_frame_id': 'base_footprint',
+                'odom_frame_id': 'odom_combined',
+                'cmd_vel': 'cmd_vel',}],
             ),  #ivan_change
 
 
