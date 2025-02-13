@@ -1,0 +1,25 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    mecanum_drive_controller:
+      type: velocity_controllers/JointGroupVelocityController
+
+mecanum_drive_controller:
+  ros__parameters:
+    type: velocity_controllers/JointGroupVelocityController
+    joints:
+      - left_wheel_joint
+      - right_wheel_joint
+      - left_front_joint
+      - right_front_joint
+    command_interfaces:
+      - velocity
+    state_interfaces:
+      - velocity
+    publish_rate: 50.0
+    use_stamped_vel: false
+    reference_timeout: 2.0
+    topic_name: "/cmd_vel"
+

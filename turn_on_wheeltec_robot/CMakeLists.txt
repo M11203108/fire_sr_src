@@ -61,9 +61,21 @@ set(wheeltec_robot_node_SRCS
   src/Quaternion_Solution.cpp
 )
 
-add_executable(wheeltec_robot_node src/wheeltec_robot.cpp src/Quaternion_Solution.cpp)
+add_executable(wheeltec_robot_node src/wheeltec_robot.cpp src/Quaternion_Solution.cpp )
 ament_target_dependencies(wheeltec_robot_node tf2_ros tf2 tf2_geometry_msgs rclcpp std_msgs nav_msgs std_srvs sensor_msgs ackermann_msgs serial wheeltec_robot_msg)
+target_link_libraries(wheeltec_robot_node zlac8015d)
 
+add_executable(example src/example.cpp src/zlac8015d.cpp)
+ament_target_dependencies(example serial rclcpp)
+
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+add_library(zlac8015d SHARED src/zlac8015d.cpp)
+ 
+
+ament_export_targets(zlac8015d HAS_LIBRARY_TARGET)
+ament_target_dependencies(zlac8015d serial rclcpp)
 #add_executable(testNode src/test.cpp src/Quaternion_Solution.cpp)
 #ament_target_dependencies(testNode rclcpp std_msgs nav_msgs std_srvs sensor_msgs ackermann_msgs serial wheeltec_robot_msg)
 
@@ -78,10 +90,30 @@ DESTINATION lib/${PROJECT_NAME}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
+install(TARGETS 
+  example
+  DESTINATION lib/${PROJECT_NAME}/
+)
+
 install(PROGRAMS
   src/odom_vel_to_dis.py
+  src/fire_keyboard.py
   DESTINATION lib/${PROJECT_NAME}
 ) #ivan change
+
+install(PROGRAMS
+  src/gazebo_test.py
+  DESTINATION lib/${PROJECT_NAME}
+) #ivan change
+
+install(
+  TARGETS zlac8015d
+  EXPORT zlac8015d
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+)
 
 install(
   DIRECTORY launch config

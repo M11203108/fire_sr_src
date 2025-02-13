@@ -17,7 +17,6 @@
 #include <unistd.h>      
 #include <rcl/types.h>
 #include <sys/stat.h>
-#include "zlac8015d.h"
 
 #include <serial/serial.h>
 #include <fcntl.h>          
@@ -35,7 +34,6 @@
 #include "wheeltec_robot_msg/msg/data.hpp"     // CHANGE
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <vector>
 using namespace std;
 
 //Macro definition
@@ -149,7 +147,7 @@ class turn_on_robot : public rclcpp::Node
 		void Control();   //Loop control code //循环控制代码
                 void update_tfupdate_tf(geometry_msgs::msg::TransformStamped::SharedPtr odom_tf);
 		void Publish_Odom();      //Pub the speedometer topic //发布里程计话题
-		//serial::Serial Stm32_Serial; //Declare a serial object //声明串口对象 
+		serial::Serial Stm32_Serial; //Declare a serial object //声明串口对象 
 		//explicit turn_on_robot(
 		 // const std::string & name = "wheeltec_robot");
 
@@ -167,7 +165,6 @@ class turn_on_robot : public rclcpp::Node
 
   		rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr Cmd_Vel_Sub;
   		rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr Akm_Cmd_Vel_Sub;
-	
 
                 rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;         // CHANGE
                 rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr voltage_publisher;         // CHANGE
@@ -200,8 +197,6 @@ class turn_on_robot : public rclcpp::Node
                 //void Akm_Cmd_Vel_Callback(const geometry_msgs::msg::Twist::SharedPtr twist_aux);
 		void Publish_ImuSensor(); //Pub the IMU sensor topic //发布IMU传感器话题
 		void Publish_Voltage();   //Pub the power supply voltage topic //发布电源电压话题
-		vector<float> read_wheel_speeds_from_driver();
-		void calculate_robot_velocity();
 		auto createQuaternionMsgFromYaw(double yaw);
  
         //从串口(ttyUSB)读取运动底盘速度、IMU、电源电压数据
@@ -211,7 +206,7 @@ class turn_on_robot : public rclcpp::Node
         short IMU_Trans(uint8_t Data_High,uint8_t Data_Low);  //IMU data conversion read //IMU数据转化读取
 		float Odom_Trans(uint8_t Data_High,uint8_t Data_Low); //Odometer data is converted to read //里程计数据转化读取
 
-        string usart_port_name_0, usart_port_name_1, robot_frame_id, gyro_frame_id, odom_frame_id, akm_cmd_vel, test; //Define the related variables //定义相关变量
+        string usart_port_name, robot_frame_id, gyro_frame_id, odom_frame_id, akm_cmd_vel, test; //Define the related variables //定义相关变量
         std::string cmd_vel;
         int serial_baud_rate;      //Serial communication baud rate //串口通信波特率
         RECEIVE_DATA Receive_Data; //The serial port receives the data structure //串口接收数据结构体
@@ -221,10 +216,6 @@ class turn_on_robot : public rclcpp::Node
         Vel_Pos_Data Robot_Vel;    //The speed of the robot //机器人的速度
         MPU6050_DATA Mpu6050_Data; //IMU data //IMU数据
         float Power_voltage;       //Power supply voltage //电源电压
-
-		ZLAC motorAB;
-		ZLAC motorCD;
-
     size_t count_;
 };
 

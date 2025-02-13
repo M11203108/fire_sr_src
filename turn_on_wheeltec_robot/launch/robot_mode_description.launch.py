@@ -9,6 +9,7 @@ from launch.actions import (DeclareLaunchArgument, GroupAction,LogInfo,
 from launch.substitutions import LaunchConfiguration
 
 
+
 def generate_robot_node(robot_urdf):
     return launch_ros.actions.Node(
         package='robot_state_publisher',

@@ -40,15 +40,17 @@ def generate_launch_description():
         launch_ros.actions.Node(
             condition=UnlessCondition(akmcar),
             package='turn_on_wheeltec_robot', 
-            executable='odom_vel_to_dis.py', 
+            executable='wheeltec_robot_node', 
             output='screen',
             parameters=[{'usart_port_name_0': '/dev/motorttyUSB0',
                 'usart_port_name_1': '/dev/motorttyUSB1',
                 'serial_baud_rate': 115200,
                 'robot_frame_id': 'base_footprint',
                 'odom_frame_id': 'odom_combined',
-                'cmd_vel': 'cmd_vel',}],
-            ),  #ivan_change
+                'cmd_vel': 'cmd_vel',
+                'akm_cmd_vel': 'none',
+                'product_number': 0,}],
+            )
 
 
   ])

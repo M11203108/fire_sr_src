@@ -3,11 +3,9 @@
 #include "turn_on_wheeltec_robot/Quaternion_Solution.h"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"     // CHANGE
 #include "wheeltec_robot_msg/msg/data.hpp"     // CHANGE
-#include "zlac8015d.h"
-#include <vector>
 
 //sensor_msgs::Imu Mpu6050;//Instantiate an IMU object //实例化IMU对象 
-sensor_msgs::msg::Imu Mpu6050;//change
+sensor_msgs::msg::Imu Mpu6050;
 using std::placeholders::_1;
 using namespace std;
 rclcpp::Node::SharedPtr node_handle = nullptr;
@@ -19,12 +17,10 @@ Function: The main function, ROS initialization, creates the Robot_control objec
 
 int main(int argc, char *argv[])
 {
-    printf("0\n");
     rclcpp::init(argc, argv);
     //auto node= std::make_shared<turn_on_robot>();
-    printf("1\n");
+
     turn_on_robot Robot_Control;
-    printf("Robot_Control.Control();\n");
     Robot_Control.Control();
     return 0;
 }
@@ -88,12 +84,12 @@ void turn_on_robot::Akm_Cmd_Vel_Callback(const ackermann_msgs::msg::AckermannDri
   Send_Data.tx[8] = transition;
   Send_Data.tx[7] = transition>>8;
 
-  // Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //For the BBC check bits, see the Check_Sum function //BBC校验位，规则参见Check_Sum函数
+  Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //For the BBC check bits, see the Check_Sum function //BBC校验位，规则参见Check_Sum函数
   Send_Data.tx[10]=FRAME_TAIL; //frame tail 0x7D //帧尾0X7D
 
   try
   { 
- //Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)); //Sends data to the downloader via serial port //通过串口向下位机发送数据 
+ Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)); //Sends data to the downloader via serial port //通过串口向下位机发送数据 
   }
   catch (serial::IOException& e)   
   {
@@ -104,8 +100,7 @@ void turn_on_robot::Akm_Cmd_Vel_Callback(const ackermann_msgs::msg::AckermannDri
 //void turn_on_robot::Cmd_Vel_Callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr akm_ctl) 
 void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::msg::Twist::SharedPtr twist_aux)
 {
-  short  vz_linear;  //intermediate variable //中间变量
-  short  speed_A, speed_B, speed_C, speed_D;  //intermediate variable //中间变量
+  short  transition;  //intermediate variable //中间变量
   //if(akm_cmd_vel=="none") {RCLCPP_INFO(this->get_logger(),"not akm");} //Prompt message //提示信息
   Send_Data.tx[0]=FRAME_HEADER; //frame head 0x7B //帧头0X7BAkm_Cmd_Vel_Sub
   Send_Data.tx[1] = 0; //set aside //预留位
@@ -113,25 +108,32 @@ void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::msg::Twist::SharedPtr 
 
   //The target velocity of the X-axis of the robot
   //机器人x轴的目标线速度
+  transition=0;
+  transition = twist_aux->linear.x*1000; //将浮点数放大一千倍，简化传输
+  Send_Data.tx[4] = transition;     //取数据的低8位
+  Send_Data.tx[3] = transition>>8;  //取数据的高8位
 
-  vz_linear = float(twist_aux->angular.z * ((0.65 + 0.661) / 2));
-  speed_A = int((twist_aux->linear.x + twist_aux->linear.y - vz_linear) * (30 / 3.1416 / 0.09));
-  speed_B = int((twist_aux->linear.x - twist_aux->linear.y - vz_linear) * (30 / 3.1416 / 0.09));
-  speed_C = int((twist_aux->linear.x + twist_aux->linear.y + vz_linear) * (30 / 3.1416 / 0.09));
-  speed_D = int((twist_aux->linear.x - twist_aux->linear.y + vz_linear) * (30 / 3.1416 / 0.09));
+  //The target velocity of the Y-axis of the robot
+  //机器人y轴的目标线速度
+  transition=0;
+  transition = twist_aux->linear.y*1000;
+  Send_Data.tx[6] = transition;
+  Send_Data.tx[5] = transition>>8;
 
-  //Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //For the BBC check bits, see the Check_Sum function //BBC校验位，规则参见Check_Sum函数
-  //Send_Data.tx[10]=FRAME_TAIL; //frame tail 0x7D //帧尾0X7D
-  printf("123");
+  //The target angular velocity of the robot's Z axis
+  //机器人z轴的目标角速度
+  transition=0;
+  transition = twist_aux->angular.z*1000;
+  Send_Data.tx[8] = transition;
+  Send_Data.tx[7] = transition>>8;
+
+  Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //For the BBC check bits, see the Check_Sum function //BBC校验位，规则参见Check_Sum函数
+  Send_Data.tx[10]=FRAME_TAIL; //frame tail 0x7D //帧尾0X7D
+
   try
   {
-    if(akm_cmd_vel=="none")
-    {
-      motorAB.set_rpm(speed_C, "LEFT");
-      motorAB.set_rpm(-speed_B, "RIGHT");
-      motorCD.set_rpm(speed_D, "LEFT");
-      motorCD.set_rpm(-speed_A, "RIGHT");
-    }
+    if(akm_cmd_vel=="none")  
+ {Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx));} //Sends data to the downloader via serial port //通过串口向下位机发送数据 
   }
   catch (serial::IOException& e)   
   {
@@ -145,71 +147,32 @@ Function: Publish the IMU data topic
 功能: 发布IMU数据话题
 ***************************************/
 
-// void turn_on_robot::Publish_ImuSensor()
-// {
-//   sensor_msgs::msg::Imu Imu_Data_Pub; //Instantiate IMU topic data //实例化IMU话题数据
-//   Imu_Data_Pub.header.stamp = rclcpp::Node::now();
-//   Imu_Data_Pub.header.frame_id = gyro_frame_id; //IMU corresponds to TF coordinates, which is required to use the robot_pose_ekf feature pack 
-//                                                 //IMU对应TF坐标，使用robot_pose_ekf功能包需要设置此项
-//   Imu_Data_Pub.orientation.x = Mpu6050.orientation.x; //A quaternion represents a three-axis attitude //四元数表达三轴姿态
-//   Imu_Data_Pub.orientation.y = Mpu6050.orientation.y; 
-//   Imu_Data_Pub.orientation.z = Mpu6050.orientation.z;
-//   Imu_Data_Pub.orientation.w = Mpu6050.orientation.w;
-//   Imu_Data_Pub.orientation_covariance[0] = 1e6; //Three-axis attitude covariance matrix //三轴姿态协方差矩阵
-//   Imu_Data_Pub.orientation_covariance[4] = 1e6;
-//   Imu_Data_Pub.orientation_covariance[8] = 1e-6;
-//   Imu_Data_Pub.angular_velocity.x = Mpu6050.angular_velocity.x; //Triaxial angular velocity //三轴角速度
-//   Imu_Data_Pub.angular_velocity.y = Mpu6050.angular_velocity.y;
-//   Imu_Data_Pub.angular_velocity.z = Mpu6050.angular_velocity.z;
-//   Imu_Data_Pub.angular_velocity_covariance[0] = 1e6; //Triaxial angular velocity covariance matrix //三轴角速度协方差矩阵
-//   Imu_Data_Pub.angular_velocity_covariance[4] = 1e6;
-//   Imu_Data_Pub.angular_velocity_covariance[8] = 1e-6;
-//   Imu_Data_Pub.linear_acceleration.x = Mpu6050.linear_acceleration.x; //Triaxial acceleration //三轴线性加速度
-//   Imu_Data_Pub.linear_acceleration.y = Mpu6050.linear_acceleration.y; 
-//   Imu_Data_Pub.linear_acceleration.z = Mpu6050.linear_acceleration.z;  
+void turn_on_robot::Publish_ImuSensor()
+{
+  sensor_msgs::msg::Imu Imu_Data_Pub; //Instantiate IMU topic data //实例化IMU话题数据
+  Imu_Data_Pub.header.stamp = rclcpp::Node::now();
+  Imu_Data_Pub.header.frame_id = gyro_frame_id; //IMU corresponds to TF coordinates, which is required to use the robot_pose_ekf feature pack 
+                                                //IMU对应TF坐标，使用robot_pose_ekf功能包需要设置此项
+  Imu_Data_Pub.orientation.x = Mpu6050.orientation.x; //A quaternion represents a three-axis attitude //四元数表达三轴姿态
+  Imu_Data_Pub.orientation.y = Mpu6050.orientation.y; 
+  Imu_Data_Pub.orientation.z = Mpu6050.orientation.z;
+  Imu_Data_Pub.orientation.w = Mpu6050.orientation.w;
+  Imu_Data_Pub.orientation_covariance[0] = 1e6; //Three-axis attitude covariance matrix //三轴姿态协方差矩阵
+  Imu_Data_Pub.orientation_covariance[4] = 1e6;
+  Imu_Data_Pub.orientation_covariance[8] = 1e-6;
+  Imu_Data_Pub.angular_velocity.x = Mpu6050.angular_velocity.x; //Triaxial angular velocity //三轴角速度
+  Imu_Data_Pub.angular_velocity.y = Mpu6050.angular_velocity.y;
+  Imu_Data_Pub.angular_velocity.z = Mpu6050.angular_velocity.z;
+  Imu_Data_Pub.angular_velocity_covariance[0] = 1e6; //Triaxial angular velocity covariance matrix //三轴角速度协方差矩阵
+  Imu_Data_Pub.angular_velocity_covariance[4] = 1e6;
+  Imu_Data_Pub.angular_velocity_covariance[8] = 1e-6;
+  Imu_Data_Pub.linear_acceleration.x = Mpu6050.linear_acceleration.x; //Triaxial acceleration //三轴线性加速度
+  Imu_Data_Pub.linear_acceleration.y = Mpu6050.linear_acceleration.y; 
+  Imu_Data_Pub.linear_acceleration.z = Mpu6050.linear_acceleration.z;  
 
-//   imu_publisher->publish(Imu_Data_Pub);
+  imu_publisher->publish(Imu_Data_Pub);
  
-// }
-/**************************************
-Date: Ivan
-Function: speed to odom
-***************************************/
-
-vector<float> turn_on_robot::read_wheel_speeds_from_driver()
-{
-    float rpm_A = motorCD.get_rpm();
-    float rpm_B = -motorAB.get_rpm();
-    float rpm_C = motorAB.get_rpm();
-    float rpm_D = -motorCD.get_rpm();
-    vector<float> rpm = {rpm_A, rpm_B, rpm_C, rpm_D};
-    return rpm;
-
 }
-
-void turn_on_robot::calculate_robot_velocity()
-{
-    vector<float> rpm = read_wheel_speeds_from_driver();
-    float rpm_A = rpm[0];
-    float rpm_B = rpm[1];
-    float rpm_C = rpm[2];
-    float rpm_D = rpm[3];
-
-    float Lx = 0.65;  // 左右輪距
-    float Ly = 0.661; // 前後輪距
-    float wheel_radius = 0.09;
-
-    float v_A = rpm_A * 2 * M_PI * wheel_radius / 60;
-    float v_B = rpm_B * 2 * M_PI * wheel_radius / 60;
-    float v_C = rpm_C * 2 * M_PI * wheel_radius / 60;
-    float v_D = rpm_D * 2 * M_PI * wheel_radius / 60;
-
-    Robot_Vel.X = (v_A + v_B + v_C + v_D) / 4;
-    Robot_Vel.Y = (-v_A + v_B + v_C - v_D) / 4;
-    Robot_Vel.Z = (-v_A - v_B + v_C + v_D) / (4 * (Lx + Ly) / 2);
-}
-
-
 
 /**************************************
 Date: January 28, 2021
@@ -282,18 +245,17 @@ Function: Publish voltage-related information
 功能: 发布电压相关信息
 ***************************************/
 
-// void turn_on_robot::Publish_Voltage()
-// {
-//     std_msgs::msg::Float32 voltage_msgs; //Define the data type of the power supply voltage publishing topic //定义电源电压发布话题的数据类型
-//     static float Count_Voltage_Pub=0;
-//     if(Count_Voltage_Pub++>10)
-//       {
-//         Count_Voltage_Pub=0;  
-//         voltage_msgs.data = Power_voltage; //The power supply voltage is obtained //电源供电的电压获取
-//         voltage_publisher->publish(voltage_msgs); //Post the power supply voltage topic unit: V, volt //发布电源电压话题单位：V、伏特
-//       }
-// }
-/**************************************
+void turn_on_robot::Publish_Voltage()
+{
+    std_msgs::msg::Float32 voltage_msgs; //Define the data type of the power supply voltage publishing topic //定义电源电压发布话题的数据类型
+    static float Count_Voltage_Pub=0;
+    if(Count_Voltage_Pub++>10)
+      {
+        Count_Voltage_Pub=0;  
+        voltage_msgs.data = Power_voltage; //The power supply voltage is obtained //电源供电的电压获取
+        voltage_publisher->publish(voltage_msgs); //Post the power supply voltage topic unit: V, volt //发布电源电压话题单位：V、伏特
+      }
+}/**************************************
 Date: January 28, 2021
 Function: Serial port communication check function, packet n has a byte, the NTH -1 byte is the check bit, the NTH byte bit frame end.Bit XOR results from byte 1 to byte n-2 are compared with byte n-1, which is a BBC check
 Input parameter: Count_Number: Check the first few bytes of the packet
@@ -329,95 +291,95 @@ Function: The serial port reads and verifies the data sent by the lower computer
 功能: 通过串口读取并校验下位机发送过来的数据，然后数据转换为国际单位
 ***************************************/
 
-// bool turn_on_robot::Get_Sensor_Data()
-// { 
-//   short transition_16=0, j=0, Header_Pos=0, Tail_Pos=0; //Intermediate variable //中间变量
-//   uint8_t Receive_Data_Pr[RECEIVE_DATA_SIZE]={0}; //Temporary variable to save the data of the lower machine //临时变量，保存下位机数据
-//   //Stm32_Serial.read(Receive_Data_Pr,sizeof (Receive_Data_Pr)); //Read the data sent by the lower computer through the serial port //通过串口读取下位机发送过来的数据
-//  //Record the position of the head and tail of the frame //记录帧头帧尾位置
-//   for(j=0;j<24;j++)
-//   {
-//     if(Receive_Data_Pr[j]==FRAME_HEADER)
-//     Header_Pos=j;
-//     else if(Receive_Data_Pr[j]==FRAME_TAIL)
-//     Tail_Pos=j;    
-//   }
+bool turn_on_robot::Get_Sensor_Data()
+{ 
+  short transition_16=0, j=0, Header_Pos=0, Tail_Pos=0; //Intermediate variable //中间变量
+  uint8_t Receive_Data_Pr[RECEIVE_DATA_SIZE]={0}; //Temporary variable to save the data of the lower machine //临时变量，保存下位机数据
+  Stm32_Serial.read(Receive_Data_Pr,sizeof (Receive_Data_Pr)); //Read the data sent by the lower computer through the serial port //通过串口读取下位机发送过来的数据
+ //Record the position of the head and tail of the frame //记录帧头帧尾位置
+  for(j=0;j<24;j++)
+  {
+    if(Receive_Data_Pr[j]==FRAME_HEADER)
+    Header_Pos=j;
+    else if(Receive_Data_Pr[j]==FRAME_TAIL)
+    Tail_Pos=j;    
+  }
 
-//   if(Tail_Pos==(Header_Pos+23))
-//   {
-//     //If the end of the frame is the last bit of the packet, copy the packet directly to receive_data.rx
-//     //如果帧尾在数据包最后一位，直接复制数据包到Receive_Data.rx
-//     // ROS_INFO("1----");
-//     memcpy(Receive_Data.rx, Receive_Data_Pr, sizeof(Receive_Data_Pr));
-//   }
-//   else if(Header_Pos==(1+Tail_Pos))
-//   {
-//     //如果帧头在帧尾后面，纠正数据位置后复制数据包到Receive_Data.rx
-//     // If the header is behind the end of the frame, copy the packet to receive_data.rx after correcting the data location
-//     // ROS_INFO("2----");
-//     for(j=0;j<24;j++)
-//     Receive_Data.rx[j]=Receive_Data_Pr[(j+Header_Pos)%24];
-//   }
-//   else 
-//   {
-//     //其它情况则认为数据包有错误
-//     // In other cases, the packet is considered to be faulty
-//     // ROS_INFO("3----");
-//     return false;
-//   }    
+  if(Tail_Pos==(Header_Pos+23))
+  {
+    //If the end of the frame is the last bit of the packet, copy the packet directly to receive_data.rx
+    //如果帧尾在数据包最后一位，直接复制数据包到Receive_Data.rx
+    // ROS_INFO("1----");
+    memcpy(Receive_Data.rx, Receive_Data_Pr, sizeof(Receive_Data_Pr));
+  }
+  else if(Header_Pos==(1+Tail_Pos))
+  {
+    //如果帧头在帧尾后面，纠正数据位置后复制数据包到Receive_Data.rx
+    // If the header is behind the end of the frame, copy the packet to receive_data.rx after correcting the data location
+    // ROS_INFO("2----");
+    for(j=0;j<24;j++)
+    Receive_Data.rx[j]=Receive_Data_Pr[(j+Header_Pos)%24];
+  }
+  else 
+  {
+    //其它情况则认为数据包有错误
+    // In other cases, the packet is considered to be faulty
+    // ROS_INFO("3----");
+    return false;
+  }    
 
-//   Receive_Data.Frame_Header= Receive_Data.rx[0]; //The first part of the data is the frame header 0X7B //数据的第一位是帧头0X7B
-//   Receive_Data.Frame_Tail= Receive_Data.rx[23];  //The last bit of data is frame tail 0X7D //数据的最后一位是帧尾0X7D
+  Receive_Data.Frame_Header= Receive_Data.rx[0]; //The first part of the data is the frame header 0X7B //数据的第一位是帧头0X7B
+  Receive_Data.Frame_Tail= Receive_Data.rx[23];  //The last bit of data is frame tail 0X7D //数据的最后一位是帧尾0X7D
 
-//   if (Receive_Data.Frame_Header == FRAME_HEADER ) //Judge the frame header //判断帧头
-//   {
-//     if (Receive_Data.Frame_Tail == FRAME_TAIL) //Judge the end of the frame //判断帧尾
-//     { 
-//       //BBC check passes or two packets are interlaced //BBC校验通过或者两组数据包交错
-//       if (Receive_Data.rx[22] == Check_Sum(22,READ_DATA_CHECK)||(Header_Pos==(1+Tail_Pos))) 
-//       {
-//         Receive_Data.Flag_Stop=Receive_Data.rx[1]; //set aside //预留位
-//         //Get the speed of the moving chassis in the X direction //获取运动底盘X方向速度
-//         Robot_Vel.X = Odom_Trans(Receive_Data.rx[2],Receive_Data.rx[3]); 
-//         //Get the speed of the moving chassis in the Y direction, The Y speed is only valid in the omnidirectional mobile robot chassis
-//         Robot_Vel.Y = Odom_Trans(Receive_Data.rx[4],Receive_Data.rx[5]); 
-//                                                                          //获取运动底盘Y方向速度，Y速度仅在全向移动机器人底盘有效
-//         Robot_Vel.Z = Odom_Trans(Receive_Data.rx[6],Receive_Data.rx[7]); //Get the speed of the moving chassis in the Z direction //获取运动底盘Z方向速度   
+  if (Receive_Data.Frame_Header == FRAME_HEADER ) //Judge the frame header //判断帧头
+  {
+    if (Receive_Data.Frame_Tail == FRAME_TAIL) //Judge the end of the frame //判断帧尾
+    { 
+      //BBC check passes or two packets are interlaced //BBC校验通过或者两组数据包交错
+      if (Receive_Data.rx[22] == Check_Sum(22,READ_DATA_CHECK)||(Header_Pos==(1+Tail_Pos))) 
+      {
+        Receive_Data.Flag_Stop=Receive_Data.rx[1]; //set aside //预留位
+        //Get the speed of the moving chassis in the X direction //获取运动底盘X方向速度
+        Robot_Vel.X = Odom_Trans(Receive_Data.rx[2],Receive_Data.rx[3]); 
+        //Get the speed of the moving chassis in the Y direction, The Y speed is only valid in the omnidirectional mobile robot chassis
+        Robot_Vel.Y = Odom_Trans(Receive_Data.rx[4],Receive_Data.rx[5]); 
+                                                                         //获取运动底盘Y方向速度，Y速度仅在全向移动机器人底盘有效
+        Robot_Vel.Z = Odom_Trans(Receive_Data.rx[6],Receive_Data.rx[7]); //Get the speed of the moving chassis in the Z direction //获取运动底盘Z方向速度   
         
-//         //MPU6050 stands for IMU only and does not refer to a specific model. It can be either MPU6050 or MPU9250
-//         //Mpu6050仅代表IMU，不指代特定型号，既可以是MPU6050也可以是MPU9250
-//         Mpu6050_Data.accele_x_data = IMU_Trans(Receive_Data.rx[8],Receive_Data.rx[9]);   //Get the X-axis acceleration of the IMU     //获取IMU的X轴加速度  
-//         Mpu6050_Data.accele_y_data = IMU_Trans(Receive_Data.rx[10],Receive_Data.rx[11]); //Get the Y-axis acceleration of the IMU     //获取IMU的Y轴加速度
-//         Mpu6050_Data.accele_z_data = IMU_Trans(Receive_Data.rx[12],Receive_Data.rx[13]); //Get the Z-axis acceleration of the IMU     //获取IMU的Z轴加速度
-//         Mpu6050_Data.gyros_x_data = IMU_Trans(Receive_Data.rx[14],Receive_Data.rx[15]);  //Get the X-axis angular velocity of the IMU //获取IMU的X轴角速度  
-//         Mpu6050_Data.gyros_y_data = IMU_Trans(Receive_Data.rx[16],Receive_Data.rx[17]);  //Get the Y-axis angular velocity of the IMU //获取IMU的Y轴角速度  
-//         Mpu6050_Data.gyros_z_data = IMU_Trans(Receive_Data.rx[18],Receive_Data.rx[19]);  //Get the Z-axis angular velocity of the IMU //获取IMU的Z轴角速度  
-//         //Linear acceleration unit conversion is related to the range of IMU initialization of STM32, where the range is ±2g=19.6m/s^2
-//         //线性加速度单位转化，和STM32的IMU初始化的时候的量程有关,这里量程±2g=19.6m/s^2
-//         Mpu6050.linear_acceleration.x = Mpu6050_Data.accele_x_data / ACCEl_RATIO;
-//         Mpu6050.linear_acceleration.y = Mpu6050_Data.accele_y_data / ACCEl_RATIO;
-//         Mpu6050.linear_acceleration.z = Mpu6050_Data.accele_z_data / ACCEl_RATIO;
-//         //The gyroscope unit conversion is related to the range of STM32's IMU when initialized. Here, the range of IMU's gyroscope is ±500°/s
-//         //Because the robot generally has a slow Z-axis speed, reducing the range can improve the accuracy
-//         //陀螺仪单位转化，和STM32的IMU初始化的时候的量程有关，这里IMU的陀螺仪的量程是±500°/s
-//         //因为机器人一般Z轴速度不快，降低量程可以提高精度
-//         Mpu6050.angular_velocity.x =  Mpu6050_Data.gyros_x_data * GYROSCOPE_RATIO;
-//         Mpu6050.angular_velocity.y =  Mpu6050_Data.gyros_y_data * GYROSCOPE_RATIO;
-//         Mpu6050.angular_velocity.z =  Mpu6050_Data.gyros_z_data * GYROSCOPE_RATIO;
+        //MPU6050 stands for IMU only and does not refer to a specific model. It can be either MPU6050 or MPU9250
+        //Mpu6050仅代表IMU，不指代特定型号，既可以是MPU6050也可以是MPU9250
+        Mpu6050_Data.accele_x_data = IMU_Trans(Receive_Data.rx[8],Receive_Data.rx[9]);   //Get the X-axis acceleration of the IMU     //获取IMU的X轴加速度  
+        Mpu6050_Data.accele_y_data = IMU_Trans(Receive_Data.rx[10],Receive_Data.rx[11]); //Get the Y-axis acceleration of the IMU     //获取IMU的Y轴加速度
+        Mpu6050_Data.accele_z_data = IMU_Trans(Receive_Data.rx[12],Receive_Data.rx[13]); //Get the Z-axis acceleration of the IMU     //获取IMU的Z轴加速度
+        Mpu6050_Data.gyros_x_data = IMU_Trans(Receive_Data.rx[14],Receive_Data.rx[15]);  //Get the X-axis angular velocity of the IMU //获取IMU的X轴角速度  
+        Mpu6050_Data.gyros_y_data = IMU_Trans(Receive_Data.rx[16],Receive_Data.rx[17]);  //Get the Y-axis angular velocity of the IMU //获取IMU的Y轴角速度  
+        Mpu6050_Data.gyros_z_data = IMU_Trans(Receive_Data.rx[18],Receive_Data.rx[19]);  //Get the Z-axis angular velocity of the IMU //获取IMU的Z轴角速度  
+        //Linear acceleration unit conversion is related to the range of IMU initialization of STM32, where the range is ±2g=19.6m/s^2
+        //线性加速度单位转化，和STM32的IMU初始化的时候的量程有关,这里量程±2g=19.6m/s^2
+        Mpu6050.linear_acceleration.x = Mpu6050_Data.accele_x_data / ACCEl_RATIO;
+        Mpu6050.linear_acceleration.y = Mpu6050_Data.accele_y_data / ACCEl_RATIO;
+        Mpu6050.linear_acceleration.z = Mpu6050_Data.accele_z_data / ACCEl_RATIO;
+        //The gyroscope unit conversion is related to the range of STM32's IMU when initialized. Here, the range of IMU's gyroscope is ±500°/s
+        //Because the robot generally has a slow Z-axis speed, reducing the range can improve the accuracy
+        //陀螺仪单位转化，和STM32的IMU初始化的时候的量程有关，这里IMU的陀螺仪的量程是±500°/s
+        //因为机器人一般Z轴速度不快，降低量程可以提高精度
+        Mpu6050.angular_velocity.x =  Mpu6050_Data.gyros_x_data * GYROSCOPE_RATIO;
+        Mpu6050.angular_velocity.y =  Mpu6050_Data.gyros_y_data * GYROSCOPE_RATIO;
+        Mpu6050.angular_velocity.z =  Mpu6050_Data.gyros_z_data * GYROSCOPE_RATIO;
 
-//         //Get the battery voltage
-//         //获取电池电压
-//         transition_16 = 0;
-//         transition_16 |=  Receive_Data.rx[20]<<8;
-//         transition_16 |=  Receive_Data.rx[21];  
-//         Power_voltage = transition_16/1000+(transition_16 % 1000)*0.001; //Unit conversion millivolt(mv)->volt(v) //单位转换毫伏(mv)->伏(v)
+        //Get the battery voltage
+        //获取电池电压
+        transition_16 = 0;
+        transition_16 |=  Receive_Data.rx[20]<<8;
+        transition_16 |=  Receive_Data.rx[21];  
+        Power_voltage = transition_16/1000+(transition_16 % 1000)*0.001; //Unit conversion millivolt(mv)->volt(v) //单位转换毫伏(mv)->伏(v)
 
-//         return true;
-//      }
-//     }
-//   } 
-//   return false;
-// }
+        return true;
+     }
+    }
+  } 
+  return false;
+}
 /**************************************
 Date: January 28, 2021
 Function: Loop access to the lower computer data and issue topics
@@ -439,32 +401,27 @@ void turn_on_robot::Control()
 
     //The serial port reads and verifies the data sent by the lower computer, and then the data is converted to international units
     //通过串口读取并校验下位机发送过来的数据，然后数据转换为国际单位
-    // if (true == Get_Sensor_Data())
-    if (true) 
+    if (true == Get_Sensor_Data()) 
                                    
     {
-
-      calculate_robot_velocity();//ivan add
-
       //Calculate the displacement in the X direction, unit: m //计算X方向的位移，单位：m
       Robot_Pos.X+=(Robot_Vel.X * cos(Robot_Pos.Z) - Robot_Vel.Y * sin(Robot_Pos.Z)) * Sampling_Time;
       //Calculate the displacement in the Y direction, unit: m //计算Y方向的位移，单位：m 
       Robot_Pos.Y+=(Robot_Vel.X * sin(Robot_Pos.Z) + Robot_Vel.Y * cos(Robot_Pos.Z)) * Sampling_Time;
       //The angular displacement about the Z axis, in rad //绕Z轴的角位移，单位：rad 
-      Robot_Pos.Z+= Robot_Vel.Z * Sampling_Time;
+      Robot_Pos.Z+=Robot_Vel.Z * Sampling_Time;
 
       //Calculate the three-axis attitude from the IMU with the angular velocity around the three-axis and the three-axis acceleration
       //通过IMU绕三轴角速度与三轴加速度计算三轴姿态
-      // Quaternion_Solution(Mpu6050.angular_velocity.x, Mpu6050.angular_velocity.y, Mpu6050.angular_velocity.z,\
-      //           Mpu6050.linear_acceleration.x, Mpu6050.linear_acceleration.y, Mpu6050.linear_acceleration.z);
-      // Publish_ImuSensor(); //Pub the IMU topic //发布IMU话题    
-      // Publish_Voltage();   //Pub the topic of power supply voltage //发布电源电压话题
+      Quaternion_Solution(Mpu6050.angular_velocity.x, Mpu6050.angular_velocity.y, Mpu6050.angular_velocity.z,\
+                Mpu6050.linear_acceleration.x, Mpu6050.linear_acceleration.y, Mpu6050.linear_acceleration.z);
+      Publish_ImuSensor(); //Pub the IMU topic //发布IMU话题    
+      Publish_Voltage();   //Pub the topic of power supply voltage //发布电源电压话题
       Publish_Odom();
 
       rclcpp::spin_some(this->get_node_base_interface());
 
     }
-    // rclcpp::spin_some(this->get_node_base_interface());//change
 
     last_time = current_time; //Record the time and use it to calculate the time interval //记录时间，用于计算时间间隔
 
@@ -479,7 +436,6 @@ Function: Constructor, executed only once, for initialization
 turn_on_robot::turn_on_robot()
 : rclcpp::Node ("wheeltec_robot")
 {
-  printf("turn_on_robot");
   memset(&Robot_Pos, 0, sizeof(Robot_Pos));
   memset(&Robot_Vel, 0, sizeof(Robot_Vel));
   memset(&Receive_Data, 0, sizeof(Receive_Data)); 
@@ -489,8 +445,7 @@ turn_on_robot::turn_on_robot()
   int serial_baud_rate = 115200;
 
   this->declare_parameter<int>("serial_baud_rate");
-  this->declare_parameter<std::string>("usart_port_name_0", "/dev/motorttyUSB0");
-  this->declare_parameter<std::string>("usart_port_name_1", "/dev/motorttyUSB1");
+  this->declare_parameter<std::string>("usart_port_name", "/dev/ttyCH343USB0");
   this->declare_parameter<std::string>("cmd_vel", "cmd_vel");
   this->declare_parameter<std::string>("akm_cmd_vel", "ackermann_cmd");
   this->declare_parameter<std::string>("odom_frame_id", "odom");
@@ -498,60 +453,52 @@ turn_on_robot::turn_on_robot()
   this->declare_parameter<std::string>("gyro_frame_id", "gyro_link");
 
   this->get_parameter("serial_baud_rate", serial_baud_rate);
-  this->get_parameter("usart_port_name_0", usart_port_name_0);
-  this->get_parameter("usart_port_name_1", usart_port_name_1);
+  this->get_parameter("usart_port_name", usart_port_name);
   this->get_parameter("cmd_vel", cmd_vel);
   this->get_parameter("akm_cmd_vel", akm_cmd_vel);
   this->get_parameter("odom_frame_id", odom_frame_id);
   this->get_parameter("robot_frame_id", robot_frame_id);
   this->get_parameter("gyro_frame_id", gyro_frame_id);
-  printf("0");
+
   odom_publisher = create_publisher<nav_msgs::msg::Odometry>("odom", 10);
   //odom_timer = create_wall_timer(1s/50, [=]() { Publish_Odom(); });
-  printf("1");
-  //imu_publisher = create_publisher<sensor_msgs::msg::Imu>("imu/data_raw", 10);    // CHANGE
+
+  imu_publisher = create_publisher<sensor_msgs::msg::Imu>("imu/data_raw", 10);    // CHANGE
   //imu_timer = create_wall_timer(1s/100, [=]() { Publish_ImuSensor(); });
 
-  //voltage_publisher = create_publisher<std_msgs::msg::Float32>("PowerVoltage", 1);
+  voltage_publisher = create_publisher<std_msgs::msg::Float32>("PowerVoltage", 1);
   //voltage_timer = create_wall_timer(1s/100, [=]() { Publish_Voltage(); });    
   //tf_pub_ = this->create_publisher<tf2_msgs::msg::TFMessage>("tf", 10);
   robotpose_publisher = create_publisher<wheeltec_robot_msg::msg::Data>("robotpose", 10);
   //robotpose_timer = create_wall_timer(1s/50, [=]() { Publish_Odom(); });
-  printf("2");
+
   robotvel_publisher = create_publisher<wheeltec_robot_msg::msg::Data>("robotvel", 10);
   //robotvel_timer = create_wall_timer(1s/50, [=]() { Publish_Odom(); });
   tf_bro = std::make_shared<tf2_ros::TransformBroadcaster>(this);
-  printf("3");
+
   Cmd_Vel_Sub = create_subscription<geometry_msgs::msg::Twist>(
       cmd_vel, 1, std::bind(&turn_on_robot::Cmd_Vel_Callback, this, _1));
-  printf("4");
+
   Akm_Cmd_Vel_Sub = create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
       akm_cmd_vel, 1, std::bind(&turn_on_robot::Akm_Cmd_Vel_Callback, this, _1));
   
   try
   { 
-  //  // Attempts to initialize and open the serial port //尝试初始化与开启串口
-  //   Stm32_Serial.setPort(usart_port_name); //Select the serial port number to enable //选择要开启的串口号
-  //   Stm32_Serial.setBaudrate(serial_baud_rate); //Set the baud rate //设置波特率
-  //   serial::Timeout _time = serial::Timeout::simpleTimeout(2000); //Timeout //超时等待
-  //   Stm32_Serial.setTimeout(_time);
-  //   Stm32_Serial.open(); //Open the serial port //开启串口
-  motorAB.begin(usart_port_name_0, 115200, 0x01);
-  motorCD.begin(usart_port_name_1, 115200, 0x01);
-  motorAB.set_vel_mode();
-  motorCD.set_vel_mode();
-  motorAB.enable();
-  motorCD.enable();
-
+   // Attempts to initialize and open the serial port //尝试初始化与开启串口
+    Stm32_Serial.setPort(usart_port_name); //Select the serial port number to enable //选择要开启的串口号
+    Stm32_Serial.setBaudrate(serial_baud_rate); //Set the baud rate //设置波特率
+    serial::Timeout _time = serial::Timeout::simpleTimeout(2000); //Timeout //超时等待
+    Stm32_Serial.setTimeout(_time);
+    Stm32_Serial.open(); //Open the serial port //开启串口
   }
   catch (serial::IOException& e)
   {
-    RCLCPP_ERROR(this->get_logger(),"wheeltec_robot can not open serial port,Please check the serial port cable! 123"); //If opening the serial port fails, an error message is printed //如果开启串口失败，打印错误信息
+    RCLCPP_ERROR(this->get_logger(),"wheeltec_robot can not open serial port,Please check the serial port cable! "); //If opening the serial port fails, an error message is printed //如果开启串口失败，打印错误信息
   }
-  //if(Stm32_Serial.isOpen())
-  //{
-    //RCLCPP_INFO(this->get_logger(),"wheeltec_robot serial port opened"); //Serial port opened successfully //串口开启成功提示
-  //}
+  if(Stm32_Serial.isOpen())
+  {
+    RCLCPP_INFO(this->get_logger(),"wheeltec_robot serial port opened"); //Serial port opened successfully //串口开启成功提示
+  }
 }
 
 /**************************************
@@ -562,16 +509,38 @@ Function: Destructor, executed only once and called by the system when an object
 
 turn_on_robot::~turn_on_robot()
 {
-  printf("stop");
-  motorAB.set_rpm(0, "LEFT");
-  motorAB.set_rpm(0, "RIGHT");
-  motorCD.set_rpm(0, "LEFT");
-  motorCD.set_rpm(0, "RIGHT");
+  //Sends the stop motion command to the lower machine before the turn_on_robot object ends
+  //对象turn_on_robot结束前向下位机发送停止运动命令
+  Send_Data.tx[0]=FRAME_HEADER;
+  Send_Data.tx[1] = 0;  
+  Send_Data.tx[2] = 0; 
 
-  motorAB.disable();
-  motorCD.disable();
+  //The target velocity of the X-axis of the robot //机器人X轴的目标线速度 
+  Send_Data.tx[4] = 0;     
+  Send_Data.tx[3] = 0;  
+
+  //The target velocity of the Y-axis of the robot //机器人Y轴的目标线速度 
+  Send_Data.tx[6] = 0;
+  Send_Data.tx[5] = 0;  
+
+  //The target velocity of the Z-axis of the robot //机器人Z轴的目标角速度 
+  Send_Data.tx[8] = 0;  
+  Send_Data.tx[7] = 0;    
+  Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //Check the bits for the Check_Sum function //校验位，规则参见Check_Sum函数
+  Send_Data.tx[10]=FRAME_TAIL; 
+
+  try
+  {
+    Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)); //Send data to the serial port //向串口发数据  
+  }
+  catch (serial::IOException& e)   
+  {
+    RCLCPP_ERROR(this->get_logger(),"Unable to send data through serial port"); //If sending data fails, an error message is printed //如果发送数据失败,打印错误信息
+  }
+  Stm32_Serial.close(); //Close the serial port //关闭串口  
+  RCLCPP_INFO(this->get_logger(),"Shutting down"); //Prompt message //提示信息
+  
 }
-
 
 
 

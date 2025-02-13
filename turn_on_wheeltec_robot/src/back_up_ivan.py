@@ -150,18 +150,18 @@ class ReadOdomVelToDis(Node):
         odom_msg.twist.twist.angular.z = self.Vz
 
         # 發布 robotpose 消息
-        pose_msg = Data()
-        pose_msg.x = self.x
-        pose_msg.y = self.y
-        pose_msg.z = self.theta
-        self.robotpose_publisher.publish(pose_msg)
+        robotpose = Data()
+        robotpose.x = self.x
+        robotpose.y = self.y
+        robotpose.z = self.theta
+        self.robotpose_publisher.publish(robotpose)
 
         # 發布 robotvel 消息
-        vel_msg = Data()
-        vel_msg.x = self.Vx
-        vel_msg.y = self.Vy
-        vel_msg.z = self.Vz
-        self.robotvel_publisher.publish(vel_msg)
+        robotvel = Data()
+        robotvel.x = self.Vx
+        robotvel.y = self.Vy
+        robotvel.z = self.Vz
+        self.robotvel_publisher.publish(robotvel)
 
         self.publisher_.publish(odom_msg)
 
