@@ -104,7 +104,7 @@ void turn_on_robot::Akm_Cmd_Vel_Callback(const ackermann_msgs::msg::AckermannDri
 //void turn_on_robot::Cmd_Vel_Callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr akm_ctl) 
 void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::msg::Twist::SharedPtr twist_aux)
 {
-  short  vz_linear;  //intermediate variable //中间变量
+
   short  speed_A, speed_B, speed_C, speed_D;  //intermediate variable //中间变量
   //if(akm_cmd_vel=="none") {RCLCPP_INFO(this->get_logger(),"not akm");} //Prompt message //提示信息
   Send_Data.tx[0]=FRAME_HEADER; //frame head 0x7B //帧头0X7BAkm_Cmd_Vel_Sub
@@ -114,11 +114,15 @@ void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::msg::Twist::SharedPtr 
   //The target velocity of the X-axis of the robot
   //机器人x轴的目标线速度
 
-  vz_linear = float(twist_aux->angular.z * ((0.65 + 0.661) / 2));
-  speed_A = int((twist_aux->linear.x + twist_aux->linear.y - vz_linear) * (30 / 3.1416 / 0.09));
-  speed_B = int((twist_aux->linear.x - twist_aux->linear.y - vz_linear) * (30 / 3.1416 / 0.09));
-  speed_C = int((twist_aux->linear.x + twist_aux->linear.y + vz_linear) * (30 / 3.1416 / 0.09));
-  speed_D = int((twist_aux->linear.x - twist_aux->linear.y + vz_linear) * (30 / 3.1416 / 0.09));
+  float Lx = 0.65;
+  float Ly = 0.661;
+  float wheel_radius = 0.09;
+
+  float vz_linear = twist_aux->angular.z * (Lx + Ly);
+  speed_A = int((twist_aux->linear.x + twist_aux->linear.y - vz_linear) * (30 / M_PI / wheel_radius));
+  speed_B = int((twist_aux->linear.x - twist_aux->linear.y - vz_linear) * (30 / M_PI / wheel_radius));
+  speed_C = int((twist_aux->linear.x + twist_aux->linear.y + vz_linear) * (30 / M_PI / wheel_radius));
+  speed_D = int((twist_aux->linear.x - twist_aux->linear.y + vz_linear) * (30 / M_PI / wheel_radius));
 
   //Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //For the BBC check bits, see the Check_Sum function //BBC校验位，规则参见Check_Sum函数
   //Send_Data.tx[10]=FRAME_TAIL; //frame tail 0x7D //帧尾0X7D
@@ -571,8 +575,3 @@ turn_on_robot::~turn_on_robot()
   motorAB.disable();
   motorCD.disable();
 }
-
-
-
-
-
