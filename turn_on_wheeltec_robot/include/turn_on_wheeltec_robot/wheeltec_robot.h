@@ -222,8 +222,8 @@ class turn_on_robot : public rclcpp::Node
         MPU6050_DATA Mpu6050_Data; //IMU data //IMU数据
         float Power_voltage;       //Power supply voltage //电源电压
 
-		ZLAC motorAB;
-		ZLAC motorCD;
+		ZLAC motorBC;
+		ZLAC motorAD;
 
     size_t count_;
 };

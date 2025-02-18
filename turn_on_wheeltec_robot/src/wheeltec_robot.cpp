@@ -105,7 +105,6 @@ void turn_on_robot::Akm_Cmd_Vel_Callback(const ackermann_msgs::msg::AckermannDri
 void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::msg::Twist::SharedPtr twist_aux)
 {
 
-  short  speed_A, speed_B, speed_C, speed_D;  //intermediate variable //中间变量
   //if(akm_cmd_vel=="none") {RCLCPP_INFO(this->get_logger(),"not akm");} //Prompt message //提示信息
   Send_Data.tx[0]=FRAME_HEADER; //frame head 0x7B //帧头0X7BAkm_Cmd_Vel_Sub
   Send_Data.tx[1] = 0; //set aside //预留位
@@ -119,23 +118,27 @@ void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::msg::Twist::SharedPtr 
   float wheel_radius = 0.09;
 
   float vz_linear = twist_aux->angular.z * (Lx + Ly);
-  speed_A = int((twist_aux->linear.x + twist_aux->linear.y - vz_linear) * (30 / M_PI / wheel_radius));
-  speed_B = int((twist_aux->linear.x - twist_aux->linear.y - vz_linear) * (30 / M_PI / wheel_radius));
-  speed_C = int((twist_aux->linear.x + twist_aux->linear.y + vz_linear) * (30 / M_PI / wheel_radius));
-  speed_D = int((twist_aux->linear.x - twist_aux->linear.y + vz_linear) * (30 / M_PI / wheel_radius));
+  int16_t speed_A = int16_t ((twist_aux->linear.x + twist_aux->linear.y - vz_linear) * (30 / M_PI / wheel_radius));
+  int16_t speed_B = int16_t ((twist_aux->linear.x - twist_aux->linear.y - vz_linear) * (30 / M_PI / wheel_radius));
+  int16_t speed_C = int16_t ((twist_aux->linear.x + twist_aux->linear.y + vz_linear) * (30 / M_PI / wheel_radius));
+  int16_t speed_D = int16_t ((twist_aux->linear.x - twist_aux->linear.y + vz_linear) * (30 / M_PI / wheel_radius));
 
   //Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //For the BBC check bits, see the Check_Sum function //BBC校验位，规则参见Check_Sum函数
   //Send_Data.tx[10]=FRAME_TAIL; //frame tail 0x7D //帧尾0X7D
-  printf("123");
+  RCLCPP_INFO(this->get_logger(), "123");
   try
   {
     if(akm_cmd_vel=="none")
     {
-      motorAB.set_rpm(speed_C, "LEFT");
-      motorAB.set_rpm(-speed_B, "RIGHT");
-      motorCD.set_rpm(speed_D, "LEFT");
-      motorCD.set_rpm(-speed_A, "RIGHT");
+      motorBC.set_double_rpm(speed_C, speed_B);
+      motorAD.set_double_rpm(speed_D, speed_A);
     }
+    MOT_DATA data_BC = motorBC.get_rpm();
+    MOT_DATA data_AD = motorAD.get_rpm();
+
+    // RCLCPP_INFO(this->get_logger(), "B_RPM: %.2f, C_RPM: %.2f", data_BC.rpm_R, data_BC.rpm_L);
+    // RCLCPP_INFO(this->get_logger(), "A_RPM: %.2f, D_RPM: %.2f", data_AD.rpm_R, data_AD.rpm_L);
+
   }
   catch (serial::IOException& e)   
   {
@@ -182,10 +185,14 @@ Function: speed to odom
 
 vector<float> turn_on_robot::read_wheel_speeds_from_driver()
 {
-    float rpm_A = motorCD.get_rpm();
-    float rpm_B = -motorAB.get_rpm();
-    float rpm_C = motorAB.get_rpm();
-    float rpm_D = -motorCD.get_rpm();
+    MOT_DATA data_AD = motorAD.get_rpm();
+    MOT_DATA data_BC = motorBC.get_rpm();
+
+    float rpm_A = static_cast<float>(data_AD.rpm_R);
+    float rpm_B = static_cast<float>(data_BC.rpm_R);
+    float rpm_C = static_cast<float>(data_BC.rpm_L);
+    float rpm_D = static_cast<float>(data_AD.rpm_L);
+
     vector<float> rpm = {rpm_A, rpm_B, rpm_C, rpm_D};
     return rpm;
 
@@ -209,8 +216,8 @@ void turn_on_robot::calculate_robot_velocity()
     float v_D = rpm_D * 2 * M_PI * wheel_radius / 60;
 
     Robot_Vel.X = (v_A + v_B + v_C + v_D) / 4;
-    Robot_Vel.Y = (-v_A + v_B + v_C - v_D) / 4;
-    Robot_Vel.Z = (-v_A - v_B + v_C + v_D) / (4 * (Lx + Ly) / 2);
+    Robot_Vel.Y = (v_A - v_B + v_C - v_D) / 4;
+    Robot_Vel.Z = (-v_A - v_B + v_C + v_D) / (2 * (Lx + Ly));
 }
 
 
@@ -439,7 +446,7 @@ void turn_on_robot::Control()
     current_time = rclcpp::Node::now();
     //Retrieves time interval, which is used to integrate velocity to obtain displacement (mileage) 
     //获取时间间隔，用于积分速度获得位移(里程)
-    Sampling_Time = (current_time - last_time).seconds(); 
+    Sampling_Time = (current_time - last_time).seconds();
 
     //The serial port reads and verifies the data sent by the lower computer, and then the data is converted to international units
     //通过串口读取并校验下位机发送过来的数据，然后数据转换为国际单位
@@ -456,6 +463,9 @@ void turn_on_robot::Control()
       Robot_Pos.Y+=(Robot_Vel.X * sin(Robot_Pos.Z) + Robot_Vel.Y * cos(Robot_Pos.Z)) * Sampling_Time;
       //The angular displacement about the Z axis, in rad //绕Z轴的角位移，单位：rad 
       Robot_Pos.Z+= Robot_Vel.Z * Sampling_Time;
+
+      RCLCPP_INFO(this->get_logger(), "Robot_Pos.X: %.2f, Robot_Pos.Y: %.2f, Robot_Pos.Z: %.2f", Robot_Pos.X, Robot_Pos.Y, Robot_Pos.Z);
+      // RCLCPP_INFO(this->get_logger(), "Robot_Vel.X: %.2f, Robot_Vel.Y: %.2f, Robot_Vel.Z: %.2f", Robot_Vel.X, Robot_Vel.Y, Robot_Vel.Z);
 
       //Calculate the three-axis attitude from the IMU with the angular velocity around the three-axis and the three-axis acceleration
       //通过IMU绕三轴角速度与三轴加速度计算三轴姿态
@@ -509,10 +519,10 @@ turn_on_robot::turn_on_robot()
   this->get_parameter("odom_frame_id", odom_frame_id);
   this->get_parameter("robot_frame_id", robot_frame_id);
   this->get_parameter("gyro_frame_id", gyro_frame_id);
-  printf("0");
+  printf("0\n");
   odom_publisher = create_publisher<nav_msgs::msg::Odometry>("odom", 10);
   //odom_timer = create_wall_timer(1s/50, [=]() { Publish_Odom(); });
-  printf("1");
+  printf("1\n");
   //imu_publisher = create_publisher<sensor_msgs::msg::Imu>("imu/data_raw", 10);    // CHANGE
   //imu_timer = create_wall_timer(1s/100, [=]() { Publish_ImuSensor(); });
 
@@ -521,14 +531,14 @@ turn_on_robot::turn_on_robot()
   //tf_pub_ = this->create_publisher<tf2_msgs::msg::TFMessage>("tf", 10);
   robotpose_publisher = create_publisher<wheeltec_robot_msg::msg::Data>("robotpose", 10);
   //robotpose_timer = create_wall_timer(1s/50, [=]() { Publish_Odom(); });
-  printf("2");
+  printf("2\n");
   robotvel_publisher = create_publisher<wheeltec_robot_msg::msg::Data>("robotvel", 10);
   //robotvel_timer = create_wall_timer(1s/50, [=]() { Publish_Odom(); });
   tf_bro = std::make_shared<tf2_ros::TransformBroadcaster>(this);
-  printf("3");
+  printf("3\n");
   Cmd_Vel_Sub = create_subscription<geometry_msgs::msg::Twist>(
       cmd_vel, 1, std::bind(&turn_on_robot::Cmd_Vel_Callback, this, _1));
-  printf("4");
+  printf("4\n");
   Akm_Cmd_Vel_Sub = create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
       akm_cmd_vel, 1, std::bind(&turn_on_robot::Akm_Cmd_Vel_Callback, this, _1));
   
@@ -540,12 +550,12 @@ turn_on_robot::turn_on_robot()
   //   serial::Timeout _time = serial::Timeout::simpleTimeout(2000); //Timeout //超时等待
   //   Stm32_Serial.setTimeout(_time);
   //   Stm32_Serial.open(); //Open the serial port //开启串口
-  motorAB.begin(usart_port_name_0, 115200, 0x01);
-  motorCD.begin(usart_port_name_1, 115200, 0x01);
-  motorAB.set_vel_mode();
-  motorCD.set_vel_mode();
-  motorAB.enable();
-  motorCD.enable();
+  motorBC.init(usart_port_name_0, 115200, 0x01, true);
+  motorAD.init(usart_port_name_1, 115200, 0x01, true);
+  // motorBC.set_vel_mode();
+  // motorAD.set_vel_mode();
+  // motorBC.enable();
+  // motorAD.enable();
 
   }
   catch (serial::IOException& e)
@@ -567,11 +577,6 @@ Function: Destructor, executed only once and called by the system when an object
 turn_on_robot::~turn_on_robot()
 {
   printf("stop");
-  motorAB.set_rpm(0, "LEFT");
-  motorAB.set_rpm(0, "RIGHT");
-  motorCD.set_rpm(0, "LEFT");
-  motorCD.set_rpm(0, "RIGHT");
-
-  motorAB.disable();
-  motorCD.disable();
+  motorBC.terminate();
+  motorAD.terminate();
 }

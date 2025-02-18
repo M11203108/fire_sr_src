@@ -1,32 +1,50 @@
 #include "zlac8015d.h"
 
-#define FLIP -1
+int main(){
+    ZLAC mot;
+    ZLAC mot1;
+    struct MOT_DATA motorstat;
+    mot.init("/dev/motorttyUSB0", 115200, 0x01, true);
+    mot1.init("/dev/motorttyUSB1", 115200, 0x01, true);
+    
+    mot.set_double_rpm(0, 0);
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_position();
+    printf("\nR:%lf|L:%lf\n", motorstat.rpm_R, motorstat.rpm_L);
+    printf("\nRp:%d|Lp:%d\n", motorstat.encoder_R, motorstat.encoder_L);
+        mot.sleep(1000);
 
-int main()
-{
-    printf("===begin===\n");
-    ZLAC motorR;
-    motorR.begin("/dev/motorttyUSB0", 115200, 0x01);
-    ZLAC motorL;
-    // motorL.begin("/dev/motorttyUSB1", 115200, 0x01);
+    printf("===set_rpm===\n");
+    mot.set_double_rpm(5, 0);   
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_position();
+    printf("\nR:%lf|L:%lf\n", motorstat.rpm_R, motorstat.rpm_L);
+    printf("\nRp:%d|Lp:%d\n", motorstat.encoder_R, motorstat.encoder_L);
+        mot.sleep(1000);
 
-    printf("\n===set_vel_mode===\n");
-    motorR.set_vel_mode();
-    motorL.set_vel_mode();
+    printf("===set_rpm===\n");
+    mot.set_double_rpm(10, 0);   
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_position();
+    printf("\nR:%lf|L:%lf\n", motorstat.rpm_R, motorstat.rpm_L);
+    printf("\nRp:%d|Lp:%d\n", motorstat.encoder_R, motorstat.encoder_L);
+        mot.sleep(1000);
 
-    printf("\n===enable===\n");
-    motorR.enable();
-    motorL.enable();
+    mot.set_double_rpm(0, 0); 
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_rpm();
+    motorstat = mot.get_position();
+    printf("\nR:%lf|L:%lf\n", motorstat.rpm_R, motorstat.rpm_L);
+    printf("\nRp:%d|Lp:%d\n", motorstat.encoder_R, motorstat.encoder_L);
 
-    printf("\n===set_rpm===\n");
-    // motorR.set_rpm(10, "LEFT");
-    // motorR.set_rpm(10, "RIGHT");
-    // motorL.set_rpm(-10, "LEFT");
-    // motorL.set_rpm(-10, "RIGHT");
-
-    printf("\n===set_sync_rpm===\n");
-
-    printf("\n===disable===\n");
-    motorR.disable();
-    motorL.disable();
+    printf("===disable===\n");
+    mot.terminate();
+    // motorL.disable();
 }
